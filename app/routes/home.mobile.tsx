@@ -8,10 +8,56 @@ const MobileHome: React.FC = () => {
   const [chatMessages, setChatMessages] = React.useState<Array<{type: 'user' | 'ai', content: string, timestamp: string}>>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
   };
+
+  // Prevent pull-to-refresh and overscroll
+  React.useEffect(() => {
+    const preventOverscroll = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      const chatMessages = target.closest('.chat-messages');
+      
+      if (!chatMessages) {
+        // Prevent pull-to-refresh on non-scrollable areas
+        if (e.touches.length === 1) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    const preventBounce = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      const scrollableElement = target.closest('.chat-messages');
+      
+      if (scrollableElement) {
+        const atTop = scrollableElement.scrollTop === 0;
+        const atBottom = scrollableElement.scrollHeight - scrollableElement.scrollTop === scrollableElement.clientHeight;
+        
+        if (atTop || atBottom) {
+          const touchY = e.touches[0].clientY;
+          const lastTouchY = (scrollableElement as any).lastTouchY || touchY;
+          const deltaY = touchY - lastTouchY;
+          
+          if ((atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
+            e.preventDefault();
+          }
+          
+          (scrollableElement as any).lastTouchY = touchY;
+        }
+      }
+    };
+
+    document.addEventListener('touchmove', preventOverscroll, { passive: false });
+    document.addEventListener('touchstart', preventBounce, { passive: false });
+    
+    return () => {
+      document.removeEventListener('touchmove', preventOverscroll);
+      document.removeEventListener('touchstart', preventBounce);
+    };
+  }, []);
 
   // Auto-scroll to bottom when new messages arrive
   React.useEffect(() => {
@@ -84,13 +130,30 @@ const MobileHome: React.FC = () => {
   const hasMessages = chatMessages.length > 0;
 
   return (
-    <div style={styles.container}>
+    <div ref={containerRef} style={styles.container}>
       <style>{`
         body, html {
           background-color: #2f2f2f;
-          overflow-x: hidden;
+          overflow: hidden;
           margin: 0;
           padding: 0;
+          position: fixed;
+          width: 100%;
+          height: 100%;
+          overscroll-behavior: none;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        #root {
+          position: fixed;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+        }
+        
+        * {
+          overscroll-behavior: none;
+          -webkit-overflow-scrolling: touch;
         }
         
         @keyframes spin {
@@ -106,6 +169,16 @@ const MobileHome: React.FC = () => {
         
         textarea::placeholder {
           color: rgba(255, 255, 255, 0.5);
+        }
+        
+        textarea {
+          -webkit-user-select: text;
+          user-select: text;
+        }
+        
+        .chat-messages {
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
         }
         
         .chat-messages::-webkit-scrollbar {
@@ -131,9 +204,8 @@ const MobileHome: React.FC = () => {
               width="20" 
               height="20" 
               viewBox="0 0 15 15"
-              style={styles.headerIcon}
+              style={{...styles.headerIcon, cursor: 'pointer'}}
               onClick={startNewChat}
-              cursor="pointer"
             >
               <path 
                 fill="#ffffff" 
@@ -334,15 +406,18 @@ const MobileHome: React.FC = () => {
 const styles = {
   container: {
     backgroundColor: '#2f2f2f',
-    minHeight: '100vh',
-    '@supports (min-height: 100dvh)': {
-      minHeight: '100dvh'
+    height: '100vh',
+    '@supports (height: 100dvh)': {
+      height: '100dvh'
     },
     width: '100%',
-    position: 'relative' as const,
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
     display: 'flex',
     flexDirection: 'column' as const,
-    paddingBottom: 'env(safe-area-inset-bottom)',
+    overflow: 'hidden',
+    touchAction: 'none',
   },
   iconContainer: {
     position: 'absolute' as const,
@@ -474,16 +549,22 @@ const styles = {
     whiteSpace: 'nowrap' as const,
   },
   chatContainer: {
-    flex: 1,
-    paddingTop: '90px',
-    paddingBottom: '150px',
-    overflowY: 'auto' as const,
+    position: 'absolute' as const,
+    top: '60px',
+    bottom: '150px',
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
   },
   chatMessages: {
-    padding: '0 16px',
+    height: '100%',
+    overflowY: 'auto' as const,
+    overflowX: 'hidden' as const,
+    padding: '16px',
     maxWidth: '600px',
     margin: '0 auto',
     width: '100%',
+    touchAction: 'pan-y',
   },
   messageWrapper: {
     display: 'flex',
@@ -555,6 +636,7 @@ const styles = {
     boxSizing: 'border-box' as const,
     resize: 'none' as const,
     fontFamily: 'system-ui, -apple-system, sans-serif',
+    touchAction: 'manipulation',
   },
   squareContainer: {
     position: 'absolute' as const,
