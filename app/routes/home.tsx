@@ -12,11 +12,15 @@ const MobileHome = React.lazy(() => import("./home.mobile"));
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "Lumi.Ai - Intelligent Document Processing" },
+    { title: "Lumi.Ai - AI Chat Assistant" },
     {
       name: "description",
       content:
-        "Transform your documents with AI-powered processing, extraction, and analysis. Lumi.Ai makes document workflows intelligent and efficient.",
+        "Lumi is an advanced AI chat assistant that helps you with answers, creative writing, coding, and more. Experience the power of conversational AI.",
+    },
+    {
+      name: "keywords",
+      content: "AI, chatbot, conversational AI, chat assistant, Lumi, Lumi.Ai",
     },
   ];
 }
