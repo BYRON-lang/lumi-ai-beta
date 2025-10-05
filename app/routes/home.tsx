@@ -2,9 +2,13 @@ import * as React from "react";
 import type { Route } from "./+types/home";
 import { Sidebar } from "../components/Sidebar";
 import { CodeEditor } from "../components/CodeEditor";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { askLumi } from "../lib/lumiApi";
 import { checkRateLimit, incrementMessageCount, getRemainingTime } from "../utils/rateLimit";
+import { useIsMobile } from "../utils/deviceDetect";
+
+// Lazy load the mobile component
+const MobileHome = React.lazy(() => import("./home.mobile"));
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -17,7 +21,8 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-export default function Home() {
+// Main desktop component
+function DesktopHome() {
   const [inputSent, setInputSent] = useState(false);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -482,4 +487,23 @@ export default function Home() {
       </div>
     </div>
   );
+}
+
+export default function Home() {
+  const isMobile = useIsMobile();
+  
+  // Show loading while checking device type
+  if (typeof window === 'undefined') {
+    return null; // or a loading spinner
+  }
+
+  if (isMobile) {
+    return (
+      <Suspense fallback={<div>Loading mobile version...</div>}>
+        <MobileHome />
+      </Suspense>
+    );
+  }
+
+  return <DesktopHome />;
 }
