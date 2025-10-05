@@ -86,6 +86,13 @@ const MobileHome: React.FC = () => {
   return (
     <div style={styles.container}>
       <style>{`
+        body, html {
+          background-color: #2f2f2f;
+          overflow-x: hidden;
+          margin: 0;
+          padding: 0;
+        }
+        
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
@@ -328,10 +335,14 @@ const styles = {
   container: {
     backgroundColor: '#2f2f2f',
     minHeight: '100vh',
+    '@supports (min-height: 100dvh)': {
+      minHeight: '100dvh'
+    },
     width: '100%',
     position: 'relative' as const,
     display: 'flex',
     flexDirection: 'column' as const,
+    paddingBottom: 'env(safe-area-inset-bottom)',
   },
   iconContainer: {
     position: 'absolute' as const,
@@ -397,6 +408,7 @@ const styles = {
     right: 0,
     backgroundColor: '#2f2f2f',
     padding: '12px 16px',
+    paddingTop: 'max(12px, env(safe-area-inset-top))',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -463,8 +475,8 @@ const styles = {
   },
   chatContainer: {
     flex: 1,
-    paddingTop: '90px', // Account for fixed header
-    paddingBottom: '150px', // Account for fixed input at bottom
+    paddingTop: '90px',
+    paddingBottom: '150px',
     overflowY: 'auto' as const,
   },
   chatMessages: {
@@ -570,6 +582,7 @@ const styles = {
     color: 'rgba(255, 255, 255, 0.6)',
     textAlign: 'center' as const,
     padding: '12px 16px',
+    paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
     fontSize: '12px',
     fontStyle: 'normal' as const,
     zIndex: 999,
