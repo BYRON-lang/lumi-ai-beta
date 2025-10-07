@@ -142,14 +142,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       // Check if we're coming back from Google OAuth
       const url = new URL(window.location.href);
-      const code = url.searchParams.get('code');
+      const token = url.searchParams.get('token');
       const error = url.searchParams.get('error');
       
       if (error) {
         throw new Error(decodeURIComponent(error));
       }
       
-      if (code) {
+      if (token) {
         // Handle the OAuth callback
         const { user } = await authService.handleGoogleCallback();
         

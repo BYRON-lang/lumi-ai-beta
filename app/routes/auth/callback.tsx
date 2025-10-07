@@ -27,7 +27,6 @@ export default function AuthCallback() {
   useEffect(() => {
     const completeAuth = async () => {
       try {
-        // Extract token from URL
         const url = new URL(window.location.href);
         const token = url.searchParams.get('token');
         const error = url.searchParams.get('error');
@@ -55,20 +54,7 @@ export default function AuthCallback() {
         const responseData = await response.json();
 
         if (!response.ok) {
-          // If it's a 404 with a signup action, redirect to signup
-          if (response.status === 404 && responseData.action === 'signup') {
-            navigate('/signup', { 
-              state: { 
-                email: responseData.email,
-                message: 'Please complete your registration',
-              },
-              replace: true 
-            });
-            return;
-          }
-          
-          const errorMessage = responseData?.error || 'Failed to authenticate';
-          throw new Error(errorMessage);
+          throw new Error(responseData?.error || 'Failed to authenticate');
         }
 
         const userData = responseData.data?.user || responseData.user;
@@ -77,28 +63,29 @@ export default function AuthCallback() {
           throw new Error('No user data received');
         }
 
-        // Store user data in localStorage
+        // Store user data
         localStorage.setItem('user', JSON.stringify(userData));
         
-        // Clean up the URL
+        // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
         
         // Redirect to home page
         navigate('/', { replace: true });
+
       } catch (err) {
         console.error('Authentication error:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
         
-        // Clean up the URL
+        // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
         
-        // Redirect to login after showing error
-        setTimeout(() => navigate('/login', { 
+        // Redirect to login with error
+        navigate('/login', { 
           state: { 
             error: err instanceof Error ? err.message : 'Authentication failed',
           },
           replace: true
-        }), 3000);
+        });
       }
     };
 
