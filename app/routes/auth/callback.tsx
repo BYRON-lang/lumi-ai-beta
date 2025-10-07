@@ -29,8 +29,14 @@ export default function AuthCallback() {
       try {
         const url = new URL(window.location.href);
         const token = url.searchParams.get('token');
+        const authSuccess = url.searchParams.get('auth');
 
-        console.log('AuthCallback: Processing callback', { token: !!token });
+        console.log('AuthCallback: Processing callback', { 
+          token: !!token, 
+          authSuccess,
+          fullUrl: window.location.href,
+          searchParams: Object.fromEntries(url.searchParams.entries())
+        });
 
         if (!token) {
           throw new Error('No authentication token found in the URL');
