@@ -29,18 +29,38 @@ export default function AuthCallback() {
       try {
         const url = new URL(window.location.href);
         const token = url.searchParams.get('token');
-        const error = url.searchParams.get('error');
 
-        if (error) {
-          throw new Error(decodeURIComponent(error));
-        }
+        console.log('AuthCallback: Processing token from URL:', token ? 'Token found' : 'No token');
 
         if (!token) {
+          // Check if we have auth=success but no token - this might be the issue
+          const authSuccess = url.searchParams.get('auth');
+          if (authSuccess === 'success') {
+            console.log('AuthCallback: auth=success but no token, trying to get user data');
+            // Try to get user data directly
+            const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
+              credentials: 'include',
+            });
+
+            if (response.ok) {
+              const responseData = await response.json();
+              const userData = responseData.data?.user || responseData.user;
+
+              if (userData) {
+                localStorage.setItem('user', JSON.stringify(userData));
+                window.history.replaceState({}, document.title, window.location.pathname);
+                navigate('/', { replace: true });
+                return;
+              }
+            }
+          }
+
           throw new Error('No authentication token found in the URL');
         }
 
         // Store the token
         localStorage.setItem('token', token);
+        console.log('AuthCallback: Token stored, fetching user data');
 
         // Get user data
         const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
@@ -52,36 +72,38 @@ export default function AuthCallback() {
         });
 
         const responseData = await response.json();
+        console.log('AuthCallback: Response status:', response.status, 'Response data:', responseData);
 
         if (!response.ok) {
           throw new Error(responseData?.error || 'Failed to authenticate');
         }
 
         const userData = responseData.data?.user || responseData.user;
-        
+
         if (!userData) {
           throw new Error('No user data received');
         }
 
         // Store user data
         localStorage.setItem('user', JSON.stringify(userData));
-        
+        console.log('AuthCallback: User data stored, redirecting to home');
+
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
-        
+
         // Redirect to home page
         navigate('/', { replace: true });
 
       } catch (err) {
-        console.error('Authentication error:', err);
+        console.error('AuthCallback: Authentication error:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
-        
+
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
-        
+
         // Redirect to login with error
-        navigate('/login', { 
-          state: { 
+        navigate('/login', {
+          state: {
             error: err instanceof Error ? err.message : 'Authentication failed',
           },
           replace: true
