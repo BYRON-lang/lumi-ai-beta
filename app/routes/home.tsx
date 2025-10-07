@@ -703,6 +703,23 @@ export default function Home() {
     return null; // or a loading spinner
   }
 
+  // Check for OAuth callback parameters and redirect to callback route
+  React.useEffect(() => {
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get('token');
+    const authSuccess = url.searchParams.get('auth');
+    
+    if (token || authSuccess) {
+      console.log('Home: OAuth parameters detected, redirecting to callback route');
+      // Redirect to the callback route with the same parameters
+      const callbackUrl = new URL('/auth/callback', window.location.origin);
+      if (token) callbackUrl.searchParams.set('token', token);
+      if (authSuccess) callbackUrl.searchParams.set('auth', authSuccess);
+      
+      window.location.replace(callbackUrl.toString());
+    }
+  }, []);
+
   if (isMobile) {
     return (
       <Suspense fallback={<div>Loading mobile version...</div>}>

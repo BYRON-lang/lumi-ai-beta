@@ -38,6 +38,13 @@ export default function AuthCallback() {
           searchParams: Object.fromEntries(url.searchParams.entries())
         });
 
+        // If we're on the home page without a token, redirect to login
+        if (window.location.pathname === '/' && !token && !authSuccess) {
+          console.log('AuthCallback: On home page without auth params, redirecting to login');
+          navigate('/login', { replace: true });
+          return;
+        }
+
         if (!token) {
           throw new Error('No authentication token found in the URL');
         }
@@ -69,7 +76,7 @@ export default function AuthCallback() {
     };
 
     completeAuth();
-  }, [navigate, setToken]);
+  }, []); // Remove dependencies to prevent infinite loop
   
   // Show a loading state while processing
   if (!error) {
