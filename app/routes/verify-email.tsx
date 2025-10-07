@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '~/services/auth';
+import { useAuth } from '~/contexts/AuthContext';
 import config from '~/config';
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { setToken } = useAuth();
   const email = searchParams.get('email') || '';
   const [digits, setDigits] = React.useState(['', '', '', '', '', '']);
   const [resendTimer, setResendTimer] = useState(30);
@@ -77,35 +79,18 @@ export default function VerifyEmail() {
       }
       
       if (verifyData.success) {
-        // After successful verification, log the user in automatically
-        const loginResponse = await fetch(`${config.API_BASE_URL}/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            email,
-            password: null, // This should be handled by your auth service
-            googleId: null, // Or use the appropriate auth method
-          }),
-        });
-        
-        const loginData = await loginResponse.json();
-        
-        if (!loginResponse.ok) {
-          // If auto-login fails, redirect to login page with success message
-          navigate('/login', { 
-            state: { 
-              message: 'Email verified successfully! Please log in.',
-              email: email
-            } 
-          });
+        // Use AuthContext to set the token and update user state
+        if (verifyData.data?.token) {
+          await setToken(verifyData.data.token, verifyData.data.user);
         } else {
-          // On successful login, redirect to home page
-          navigate('/', { 
-            state: { 
-              message: 'Welcome! You have been logged in successfully.',
+          // Fallback: manually store user data and redirect
+          if (verifyData.data?.user) {
+            localStorage.setItem('user', JSON.stringify(verifyData.data.user));
+          }
+          
+          navigate('/', {
+            state: {
+              message: 'Welcome! Your email has been verified and you are now logged in.',
             },
             replace: true
           });
@@ -167,6 +152,47 @@ export default function VerifyEmail() {
       inputRefs.current[index - 1]?.focus();
     }
   };
+
+  // Show loading screen during verification
+  if (isLoading) {
+    return (
+      <div style={{
+        backgroundColor: '#171717',
+        minHeight: '100vh',
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        color: 'white',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}>
+        <div style={{
+          width: '50px',
+          height: '50px',
+          border: '3px solid #333',
+          borderTop: '3px solid #FFA500',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+        }} />
+        <div style={{
+          marginTop: '1rem',
+          fontSize: '1rem',
+          color: 'rgba(255, 255, 255, 0.7)',
+        }}>
+          Verifying your email...
+        </div>
+        <style>
+          {`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}
+        </style>
+      </div>
+    );
+  }
 
   return (
     <div style={{

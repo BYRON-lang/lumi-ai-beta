@@ -30,24 +30,9 @@ export default function AuthCallback() {
         const url = new URL(window.location.href);
         const token = url.searchParams.get('token');
 
-        console.log('AuthCallback: Processing token from URL:', token ? 'Token found' : 'No token');
+        console.log('AuthCallback: Processing callback', { token: !!token });
 
         if (!token) {
-          // Check if we have auth=success but no token - this might be the issue
-          const authSuccess = url.searchParams.get('auth');
-          if (authSuccess === 'success') {
-            console.log('AuthCallback: auth=success but no token, trying to get user data');
-            // Try to get user data directly using the setToken method
-            try {
-              await setToken(''); // This will trigger the AuthContext to fetch user data
-              window.history.replaceState({}, document.title, window.location.pathname);
-              navigate('/', { replace: true });
-              return;
-            } catch (fallbackError) {
-              console.error('AuthCallback: Fallback authentication failed:', fallbackError);
-            }
-          }
-
           throw new Error('No authentication token found in the URL');
         }
 
@@ -56,8 +41,8 @@ export default function AuthCallback() {
         await setToken(token);
         console.log('AuthCallback: setToken completed successfully');
 
-        // Clean up URL and redirect
-        window.history.replaceState({}, document.title, window.location.pathname);
+        // Clean up URL and redirect to home page
+        window.history.replaceState({}, document.title, '/');
         navigate('/', { replace: true });
 
       } catch (err) {

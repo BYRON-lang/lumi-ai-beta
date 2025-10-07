@@ -21,7 +21,7 @@ interface AuthContextType {
   logout: () => void;
   verifyEmail: (code: string, email: string) => Promise<boolean>;
   resendVerificationEmail: (email: string) => Promise<boolean>;
-  setToken: (token: string) => Promise<void>;
+  setToken: (token: string, userData?: User) => Promise<void>;
 }
 
 // Create a default context value that matches the AuthContextType
@@ -114,20 +114,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const setToken = async (token: string) => {
+  const setToken = async (token: string, userData?: User) => {
     try {
       setLoading(true);
       setError(null);
+      
+      if (!token) {
+        throw new Error('No token provided');
+      }
+      
       // Store the token in localStorage
       localStorage.setItem('token', token);
-      // Fetch user data using the token
-      const userData = await authService.getCurrentUser();
+      
+      // If userData is provided, use it directly, otherwise fetch from server
       if (userData) {
         setUser(userData);
         localStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        // Fetch user data using the token
+        console.log('setToken: Fetching user data with token');
+        const fetchedUserData = await authService.getCurrentUser(true); // Force refresh
+        if (fetchedUserData) {
+          console.log('setToken: Got user data:', fetchedUserData);
+          setUser(fetchedUserData);
+          localStorage.setItem('user', JSON.stringify(fetchedUserData));
+        } else {
+          throw new Error('Failed to fetch user data with the provided token');
+        }
       }
       navigate('/');
     } catch (err) {
+      console.error('setToken error:', err);
       setError(err instanceof Error ? err.message : 'Failed to set authentication token');
       throw err;
     } finally {
