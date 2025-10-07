@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '~/contexts/AuthContext';
 import { authService } from '~/services/auth';
+import config from '~/config';
 
 const styles = {
   container: {
@@ -24,21 +25,23 @@ export default function AuthCallback() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const error = searchParams.get('error');
-    const token = searchParams.get('token');
-    const redirectTo = searchParams.get('redirectTo') || '/';
-    
     const completeAuth = async () => {
       try {
-        if (!token) {
-          throw new Error('No authentication token received');
+        // First, try to handle the Google OAuth callback
+        const { user } = await authService.handleGoogleCallback();
+        
+        // If we have a user, update the auth context
+        if (user) {
+          localStorage.setItem('user', JSON.stringify(user));
+          
+          // Clean up the URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          // Redirect to home page
+          navigate('/', { replace: true });
+        } else {
+          throw new Error('No user data received from authentication');
         }
-        
-        // Save the token
-        await setToken(token);
-        
-        // Redirect to the intended URL or home
-        navigate(redirectTo);
       } catch (err) {
         console.error('Authentication error:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
@@ -47,20 +50,16 @@ export default function AuthCallback() {
         window.history.replaceState({}, document.title, window.location.pathname);
         
         // Redirect to login after showing error
-        setTimeout(() => navigate('/login'), 5000);
+        setTimeout(() => navigate('/login', { 
+          state: { 
+            error: err instanceof Error ? err.message : 'Authentication failed' 
+          } 
+        }), 3000);
       }
     };
 
-    if (error) {
-      setError(decodeURIComponent(error));
-      // Clean up the URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-      // Redirect to login after showing error
-      setTimeout(() => navigate('/login'), 5000);
-    } else {
-      completeAuth();
-    }
-  }, [searchParams, navigate, setToken]);
+    completeAuth();
+  }, [navigate]);
   
   // Show a loading state while processing
   if (!error) {

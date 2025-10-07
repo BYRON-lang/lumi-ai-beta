@@ -139,15 +139,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
       setError(null);
-      const { user } = await authService.handleGoogleCallback();
       
-      // Store user data
-      localStorage.setItem('user', JSON.stringify(user));
-      setUser(user);
+      // Check if we're coming back from Google OAuth
+      const url = new URL(window.location.href);
+      const code = url.searchParams.get('code');
+      const error = url.searchParams.get('error');
       
-      navigate('/');
+      if (error) {
+        throw new Error(decodeURIComponent(error));
+      }
+      
+      if (code) {
+        // Handle the OAuth callback
+        const { user } = await authService.handleGoogleCallback();
+        
+        // Store user data
+        localStorage.setItem('user', JSON.stringify(user));
+        setUser(user);
+        
+        // Clean up the URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Redirect to home page
+        navigate('/', { replace: true });
+      } else {
+        // Initial login - redirect to Google OAuth
+        const googleAuthUrl = authService.getGoogleOAuthUrl(window.location.href);
+        window.location.href = googleAuthUrl;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google login failed');
+      console.error('Google login error:', err);
       throw err;
     } finally {
       setLoading(false);

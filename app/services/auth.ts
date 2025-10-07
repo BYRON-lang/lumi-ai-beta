@@ -155,14 +155,35 @@ export const authService = {
 
   async handleGoogleCallback(): Promise<{ user: any }> {
     try {
+      // Get the token from the URL
+      const url = new URL(window.location.href);
+      const token = url.searchParams.get('token');
+      const error = url.searchParams.get('error');
+
+      if (error) {
+        throw new Error(decodeURIComponent(error));
+      }
+
+      if (!token) {
+        throw new Error('No authentication token found in the URL');
+      }
+
+      // Store the token
+      localStorage.setItem('token', token);
+
+      // Get user data
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
         credentials: 'include',
       });
 
       const responseData = await response.json();
 
       if (!response.ok) {
-        const errorMessage = responseData?.error || responseData?.message || 'Failed to authenticate with Google';
+        const errorMessage = responseData?.error || responseData?.message || 'Failed to fetch user data';
         throw new Error(errorMessage);
       }
 
@@ -170,6 +191,8 @@ export const authService = {
       
       if (userData) {
         localStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        throw new Error('No user data received');
       }
 
       return { user: userData };
