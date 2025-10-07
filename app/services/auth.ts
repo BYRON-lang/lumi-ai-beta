@@ -223,7 +223,7 @@ export const authService = {
       try {
         const cachedUser = localStorage.getItem('user');
         if (!cachedUser) return null;
-        
+
         const parsed = JSON.parse(cachedUser);
         return parsed && typeof parsed === 'object' ? parsed : null;
       } catch (e) {
@@ -243,33 +243,47 @@ export const authService = {
 
     try {
       console.log('Fetching current user from:', `${API_BASE_URL}/auth/me`);
+
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add Authorization header if token exists
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        console.log('Including Authorization header with token');
+      } else {
+        console.log('No token found, making request without Authorization header');
+      }
+
       const response = await fetch(`${API_BASE_URL}/auth/me`, {
         method: 'GET',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
-      
+
       if (!response.ok) {
         console.warn('Failed to fetch current user:', response.status, response.statusText);
         localStorage.removeItem('user');
         return null;
       }
-      
+
       const responseData = await response.json();
       console.log('User data from /me:', responseData);
-      
+
       const userData = responseData.data?.user || responseData.user;
-      
+
       if (userData) {
         localStorage.setItem('user', JSON.stringify(userData));
         return userData;
       }
-      
+
       localStorage.removeItem('user');
       return null;
-      
+
     } catch (error) {
       console.error('Error in getCurrentUser:', error);
       return getCachedUser();
