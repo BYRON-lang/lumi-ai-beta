@@ -37,61 +37,27 @@ export default function AuthCallback() {
           const authSuccess = url.searchParams.get('auth');
           if (authSuccess === 'success') {
             console.log('AuthCallback: auth=success but no token, trying to get user data');
-            // Try to get user data directly
-            const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
-              credentials: 'include',
-            });
-
-            if (response.ok) {
-              const responseData = await response.json();
-              const userData = responseData.data?.user || responseData.user;
-
-              if (userData) {
-                localStorage.setItem('user', JSON.stringify(userData));
-                window.history.replaceState({}, document.title, window.location.pathname);
-                navigate('/', { replace: true });
-                return;
-              }
+            // Try to get user data directly using the setToken method
+            try {
+              await setToken(''); // This will trigger the AuthContext to fetch user data
+              window.history.replaceState({}, document.title, window.location.pathname);
+              navigate('/', { replace: true });
+              return;
+            } catch (fallbackError) {
+              console.error('AuthCallback: Fallback authentication failed:', fallbackError);
             }
           }
 
           throw new Error('No authentication token found in the URL');
         }
 
-        // Store the token
-        localStorage.setItem('token', token);
-        console.log('AuthCallback: Token stored, fetching user data');
+        // Use the AuthContext's setToken method to properly authenticate
+        console.log('AuthCallback: Calling setToken with token');
+        await setToken(token);
+        console.log('AuthCallback: setToken completed successfully');
 
-        // Get user data
-        const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        });
-
-        const responseData = await response.json();
-        console.log('AuthCallback: Response status:', response.status, 'Response data:', responseData);
-
-        if (!response.ok) {
-          throw new Error(responseData?.error || 'Failed to authenticate');
-        }
-
-        const userData = responseData.data?.user || responseData.user;
-
-        if (!userData) {
-          throw new Error('No user data received');
-        }
-
-        // Store user data
-        localStorage.setItem('user', JSON.stringify(userData));
-        console.log('AuthCallback: User data stored, redirecting to home');
-
-        // Clean up URL
+        // Clean up URL and redirect
         window.history.replaceState({}, document.title, window.location.pathname);
-
-        // Redirect to home page
         navigate('/', { replace: true });
 
       } catch (err) {
@@ -112,7 +78,7 @@ export default function AuthCallback() {
     };
 
     completeAuth();
-  }, [navigate]);
+  }, [navigate, setToken]);
   
   // Show a loading state while processing
   if (!error) {
