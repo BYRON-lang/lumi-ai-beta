@@ -99,14 +99,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setLoading(true);
       setError(null);
-      const { user } = await authService.login({ email, password });
+      const { user, token } = await authService.login({ email, password });
       
-      // Store minimal user data in localStorage for quick access
-      localStorage.setItem('user', JSON.stringify(user));
+      // User data and token are already stored by authService.login()
+      // Just update the context state
       setUser(user);
       
+      console.log('Login successful, user authenticated:', user);
       navigate('/');
     } catch (err) {
+      console.error('Login error in AuthContext:', err);
       setError(err instanceof Error ? err.message : 'Login failed');
       throw err;
     } finally {

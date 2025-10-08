@@ -77,16 +77,21 @@ export const authService = {
       }
 
       const userData = responseData.data?.user || responseData.user;
+      const token = responseData.data?.token || responseData.token;
       
       if (!userData) {
         console.error('No user data in response:', responseData);
         throw new Error('Invalid response from server');
       }
 
+      // Store both user data and token
       localStorage.setItem('user', JSON.stringify(userData));
+      if (token) {
+        localStorage.setItem('token', token);
+      }
       console.log('User logged in and stored:', userData);
       
-      return { user: userData };
+      return { user: userData, token };
     } catch (error) {
       console.error('Login error:', error);
       localStorage.removeItem('user');

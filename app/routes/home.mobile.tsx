@@ -1,5 +1,10 @@
 import * as React from 'react';
-import { askLumi } from '../lib/lumiApi';
+import { askLumiStream, getAgents, stopGeneration, type AgentInfo } from '../lib/lumiApi';
+import { MarkdownRenderer } from '../components/MarkdownRenderer';
+import { AuthModal } from '../components/AuthModal';
+import { CookieConsent } from '../components/CookieConsent';
+import { useAuthModal } from '../hooks/useAuthModal';
+import { useCookieConsent } from '../hooks/useCookieConsent';
 
 const MobileHome: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -7,8 +12,57 @@ const MobileHome: React.FC = () => {
   const [textareaValue, setTextareaValue] = React.useState('');
   const [chatMessages, setChatMessages] = React.useState<Array<{type: 'user' | 'ai', content: string, timestamp: string}>>([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isStreaming, setIsStreaming] = React.useState(false);
+  const [selectedAgent, setSelectedAgent] = React.useState('lumi-1.0');
+  const [availableAgents, setAvailableAgents] = React.useState<AgentInfo[]>([]);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
+
+  // Auth modal
+  const { modalState, showAuthModal, hideAuthModal, handleLogin, handleSignup } = useAuthModal();
+
+  // Cookie consent
+  const { 
+    hasConsented, 
+    acceptAll, 
+    declineNonEssential, 
+    saveCustomPreferences 
+  } = useCookieConsent();
+
+  // Message actions
+  const handleRetryMessage = (messageIndex: number) => {
+    const userMessageIndex = messageIndex - 1;
+    if (userMessageIndex >= 0 && chatMessages[userMessageIndex]?.type === 'user') {
+      const userMessage = chatMessages[userMessageIndex].content;
+      
+      // Remove the AI response and retry
+      setChatMessages(prev => prev.slice(0, messageIndex));
+      setTextareaValue(userMessage);
+      
+      // Trigger a new submission
+      setTimeout(() => {
+        sendMessage();
+      }, 100);
+    }
+  };
+
+  const handleCopyMessage = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  const handleLikeMessage = (messageIndex: number) => {
+    console.log('Liked message:', messageIndex);
+    // TODO: Implement like functionality
+  };
+
+  const handleDislikeMessage = (messageIndex: number) => {
+    console.log('Disliked message:', messageIndex);
+    // TODO: Implement dislike functionality
+  };
   
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
@@ -64,8 +118,32 @@ const MobileHome: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, isLoading]);
 
+  // Auto-scroll during streaming to keep generation visible
+  React.useEffect(() => {
+    if (isLoading && chatMessages.length > 0) {
+      const lastMessage = chatMessages[chatMessages.length - 1];
+      if (lastMessage.type === 'ai') {
+        // Scroll to show the AI response being generated
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [isLoading, chatMessages]);
+
+  // Load available agents
+  React.useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        const agents = await getAgents();
+        setAvailableAgents(agents);
+      } catch (error) {
+        console.error('Failed to load agents:', error);
+      }
+    };
+    loadAgents();
+  }, []);
+
   const sendMessage = async () => {
-    if (!textareaValue.trim() || isLoading) return;
+    if (!textareaValue.trim() || isLoading || isStreaming) return;
 
     const userMessage = textareaValue.trim();
     setTextareaValue('');
@@ -80,6 +158,21 @@ const MobileHome: React.FC = () => {
 
     setChatMessages(prev => [...prev, newUserMessage]);
     setIsLoading(true);
+    setIsStreaming(true);
+
+    // Push all previous content up and show only the new question
+    setTimeout(() => {
+      // Scroll to show only the new question and upcoming answer
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
+
+    // Add placeholder for streaming response
+    const streamingPlaceholder = {
+      type: 'ai' as const,
+      content: '',
+      timestamp: new Date().toISOString()
+    };
+    setChatMessages(prev => [...prev, streamingPlaceholder]);
 
     try {
       // Convert chat history to the format expected by the API
@@ -88,28 +181,98 @@ const MobileHome: React.FC = () => {
         ai: msg.type === 'ai' ? msg.content : ''
       })).filter(msg => msg.user || msg.ai);
 
-      const response = await askLumi(userMessage, conversationHistory);
+      // Use streaming API
+      const fullResponse = await askLumiStream(
+        userMessage,
+        conversationHistory,
+        selectedAgent as 'lumi-1.0' | 'lumi-coder',
+        (chunk) => {
+          // Update streaming message in real-time
+          setChatMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage.type === 'ai') {
+              lastMessage.content += chunk.content || '';
+            }
+            return newMessages;
+          });
+        },
+        (fullResponse) => {
+          // Streaming completed
+          console.log('Streaming completed:', fullResponse);
+        },
+        (error) => {
+          // Handle streaming error
+          console.error('Streaming error:', error);
+          
+          // Check if it's a rate limit error
+          if (error.includes('Rate limit exceeded') || error.includes('Please sign up or log in')) {
+            // Extract remaining messages and reset time from error message
+            const remainingMatch = error.match(/You've used all (\d+) guest messages/);
+            const resetTimeMatch = error.match(/Reset at (.+)/);
+            
+            const remainingMessages = remainingMatch ? parseInt(remainingMatch[1]) : 0;
+            const resetTime = resetTimeMatch ? resetTimeMatch[1] : undefined;
+            
+            // Show auth modal
+            showAuthModal(remainingMessages, resetTime);
+            
+            // Update message
+            setChatMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage.type === 'ai') {
+                lastMessage.content = 'Rate limit reached. Please sign up or log in to continue.';
+              }
+              return newMessages;
+            });
+          } else {
+            // Regular error handling
+            setChatMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessage = newMessages[newMessages.length - 1];
+              if (lastMessage.type === 'ai') {
+                lastMessage.content = 'Sorry, I encountered an error. Please try again.';
+              }
+              return newMessages;
+            });
+          }
+        },
+        undefined // No chatId for mobile for now
+      );
 
-      // Add AI response to chat
-      const newAIMessage = {
-        type: 'ai' as const,
-        content: response.reply,
-        timestamp: new Date().toISOString()
-      };
-
-      setChatMessages(prev => [...prev, newAIMessage]);
+      // Final update with complete response
+      setChatMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage.type === 'ai') {
+          lastMessage.content = fullResponse;
+        }
+        return newMessages;
+      });
     } catch (error) {
       console.error('Error sending message:', error);
-      // Add error message
-      const errorMessage = {
-        type: 'ai' as const,
-        content: 'Sorry, I encountered an error. Please try again.',
-        timestamp: new Date().toISOString()
-      };
-      setChatMessages(prev => [...prev, errorMessage]);
+      
+      // Add error message to chat
+      setChatMessages(prev => {
+        const newMessages = [...prev];
+        const lastMessage = newMessages[newMessages.length - 1];
+        if (lastMessage.type === 'ai') {
+          lastMessage.content = 'Sorry, I encountered an error. Please try again.';
+        }
+        return newMessages;
+      });
     } finally {
       setIsLoading(false);
+      setIsStreaming(false);
     }
+  };
+
+  const handleStopGeneration = () => {
+    console.log('Stopping generation...');
+    stopGeneration();
+    setIsStreaming(false);
+    setIsLoading(false);
   };
 
   const startNewChat = () => {
@@ -117,6 +280,7 @@ const MobileHome: React.FC = () => {
     setTextareaValue('');
     setIsTextareaFocused(false);
     setIsLoading(false);
+    setIsStreaming(false);
     setIsDropdownOpen(false);
   };
 
@@ -322,35 +486,97 @@ const MobileHome: React.FC = () => {
           <div className="chat-messages" style={styles.chatMessages}>
             {chatMessages.map((message, index) => (
               <div key={index} style={styles.messageWrapper}>
-                {message.type === 'ai' && (
-                  <div style={styles.aiAvatar}>
-                    <img
-                      src="/logo.png"
-                      alt="Lumi"
-                      style={styles.avatarLogo}
-                    />
+                {message.type === 'user' && (
+                  <div style={styles.userAvatar}>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ color: '#ffffff' }}
+                    >
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
                   </div>
                 )}
                 <div style={{
                   ...styles.message,
                   ...(message.type === 'user' ? styles.userMessage : styles.aiMessage)
                 }}>
-                  {message.content}
+                  {message.type === 'ai' ? (
+                    <div>
+                      {/* Agent name */}
+                      {availableAgents.find(agent => agent.id === selectedAgent)?.name && (
+                        <div style={{
+                          fontSize: '12px',
+                          color: 'rgba(255, 255, 255, 0.6)',
+                          marginBottom: '8px',
+                          fontWeight: '500'
+                        }}>
+                          {availableAgents.find(agent => agent.id === selectedAgent)?.name}
+                        </div>
+                      )}
+                      
+                      <MarkdownRenderer 
+                        content={message.content} 
+                        className="text-white"
+                      />
+                      {isStreaming && message.content === '' && (
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '12px', 
+                          marginTop: '12px',
+                          padding: '12px',
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          fontSize: '14px',
+                          fontWeight: '500'
+                        }}>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            <div style={{ 
+                              width: '8px', 
+                              height: '8px', 
+                              backgroundColor: '#ff6b35', 
+                              borderRadius: '50%',
+                              animation: 'bounce 1.4s infinite'
+                            }}></div>
+                            <div style={{ 
+                              width: '8px', 
+                              height: '8px', 
+                              backgroundColor: '#ff6b35', 
+                              borderRadius: '50%',
+                              animation: 'bounce 1.4s infinite 0.2s'
+                            }}></div>
+                            <div style={{ 
+                              width: '8px', 
+                              height: '8px', 
+                              backgroundColor: '#ff6b35', 
+                              borderRadius: '50%',
+                              animation: 'bounce 1.4s infinite 0.4s'
+                            }}></div>
+                          </div>
+                          <span>{availableAgents.find(agent => agent.id === selectedAgent)?.name} is thinking...</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    message.content
+                  )}
                 </div>
               </div>
             ))}
             {isLoading && (
               <div style={styles.messageWrapper}>
-                <div style={styles.aiAvatar}>
-                  <img
-                    src="/logo.png"
-                    alt="Lumi"
-                    style={{
-                      ...styles.avatarLogo,
-                      animation: 'spin 1s linear infinite'
-                    }}
-                  />
-                </div>
+                <div style={styles.aiAvatar}></div>
                 <div style={{...styles.message, ...styles.aiMessage, ...styles.loadingMessage}}>
                   <span style={styles.dot}>.</span>
                   <span style={{...styles.dot, animationDelay: '0.2s'}}>.</span>
@@ -378,27 +604,58 @@ const MobileHome: React.FC = () => {
         <div 
           style={{
             ...styles.squareContainer,
-            backgroundColor: (isTextareaFocused || textareaValue.trim()) ? '#ff6b35' : 'rgba(255, 255, 255, 0.2)',
-            cursor: (textareaValue.trim() && !isLoading) ? 'pointer' : 'default',
+            backgroundColor: isStreaming ? '#dc2626' : (isTextareaFocused || textareaValue.trim()) ? '#ff6b35' : 'rgba(255, 255, 255, 0.2)',
+            cursor: (textareaValue.trim() && !isLoading) || isStreaming ? 'pointer' : 'default',
             opacity: isLoading ? 0.5 : 1
           }} 
-          onClick={sendMessage}
+          onClick={isStreaming ? handleStopGeneration : sendMessage}
         >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width="200" 
-            height="200" 
-            viewBox="0 0 32 32"
-            style={styles.uploadIcon}
-          >
-            <path fill="#ffffff" d="m16 4.094l-.72.687l-8.5 8.5l1.44 1.44L15 7.936V28h2V7.937l6.78 6.782l1.44-1.44l-8.5-8.5l-.72-.686z"/>
-          </svg>
+          {isStreaming ? (
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="200" 
+              height="200" 
+              viewBox="0 0 24 24"
+              style={styles.uploadIcon}
+            >
+              <path fill="#ffffff" d="M6 6h12v12H6z"/>
+            </svg>
+          ) : (
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="200" 
+              height="200" 
+              viewBox="0 0 32 32"
+              style={styles.uploadIcon}
+            >
+              <path fill="#ffffff" d="m16 4.094l-.72.687l-8.5 8.5l1.44 1.44L15 7.936V28h2V7.937l6.78 6.782l1.44-1.44l-8.5-8.5l-.72-.686z"/>
+            </svg>
+          )}
         </div>
       </div>
 
       <div style={styles.disclaimer}>
         Lumi can make mistakes. Please check important information.
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={modalState.isOpen}
+        onClose={hideAuthModal}
+        onLogin={handleLogin}
+        onSignup={handleSignup}
+        remainingMessages={modalState.remainingMessages}
+        resetTime={modalState.resetTime || undefined}
+      />
+
+      {/* Cookie Consent */}
+      {!hasConsented && (
+        <CookieConsent
+          onAccept={acceptAll}
+          onDecline={declineNonEssential}
+          onCustomize={saveCustomPreferences}
+        />
+      )}
     </div>
   );
 };
@@ -578,6 +835,18 @@ const styles = {
     flexShrink: 0,
     marginTop: '4px',
   },
+  userAvatar: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '16px',
+    backgroundColor: '#3b82f6',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: '12px',
+    flexShrink: 0,
+    marginTop: '4px',
+  },
   avatarLogo: {
     width: '32px',
     height: '32px',
@@ -586,7 +855,7 @@ const styles = {
   message: {
     padding: '12px 16px',
     borderRadius: '16px',
-    fontSize: '15px',
+    fontSize: '18px',
     lineHeight: '1.5',
     maxWidth: '85%',
     wordWrap: 'break-word' as const,
@@ -631,7 +900,7 @@ const styles = {
     border: 'none',
     borderRadius: '0px',
     color: '#ffffff',
-    fontSize: '16px',
+    fontSize: '18px',
     outline: 'none',
     boxSizing: 'border-box' as const,
     resize: 'none' as const,
@@ -665,7 +934,7 @@ const styles = {
     textAlign: 'center' as const,
     padding: '12px 16px',
     paddingBottom: 'max(12px, env(safe-area-inset-bottom))',
-    fontSize: '12px',
+    fontSize: '14px',
     fontStyle: 'normal' as const,
     zIndex: 999,
     backgroundColor: '#2f2f2f',

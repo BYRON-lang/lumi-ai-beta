@@ -102,8 +102,8 @@ export default function Login() {
         margin: '0 auto'
       }}>
         <div style={{ fontSize: '2rem', opacity: 0.9, lineHeight: '1.6' }}>
-          <div style={{ marginBottom: '1px' }}>Sign in to <i style={{ color: '#FFA500' }}>continue</i></div>
-          <div>your journey with Lumi</div>
+          <div style={{ marginBottom: '1px' }}>Sign in to <i style={{ color: '#FFA500' }} className="brand-text lowercase">continue</i></div>
+          <div>your journey with <span className="brand-text lowercase">lumi</span></div>
           <div style={{ fontSize: '0.9rem', opacity: 0.7, marginTop: '1rem' }}>
             By continuing you accept to our privacy and policy
           </div>
