@@ -1,0 +1,166 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* Custom font face for LAMCHO */
+@font-face {
+  font-family: 'LAMCHO';
+  src: url('/font/LAMCHO.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-lamcho: "LAMCHO", "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  @apply bg-[#191919];
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  color-scheme: dark;
+}
+
+/* Fixed background */
+.fixed-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #2f2f2f;
+  z-index: -1;
+}
+
+/* Main app container */
+.app-container {
+  height: 100vh;
+  width: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+}
+
+/* Custom font utility classes */
+.font-lamcho {
+  font-family: var(--font-lamcho);
+}
+
+/* Example usage classes for specific UI elements */
+.brand-text {
+  font-family: var(--font-lamcho);
+  font-weight: 600;
+}
+
+.logo-text {
+  font-family: var(--font-lamcho);
+  font-weight: 500;
+}
+
+.accent-text {
+  font-family: var(--font-lamcho);
+  font-weight: 400;
+}
+
+/* Thinking animation for agent logo */
+@keyframes thinking {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+@keyframes codeGeneration {
+  0%, 80%, 100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Web search animation */
+@keyframes webSearch {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.1) rotate(90deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 0.6;
+  }
+  75% {
+    transform: scale(1.1) rotate(270deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1) rotate(360deg);
+    opacity: 1;
+  }
+}
+
+/* Extended thinking animation */
+@keyframes extendedThinking {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.1) rotate(5deg);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.2) rotate(0deg);
+    opacity: 0.8;
+  }
+  75% {
+    transform: scale(1.1) rotate(-5deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes imageGeneration {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  25% {
+    transform: scale(1.1) rotate(5deg);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2) rotate(0deg);
+    opacity: 0.6;
+  }
+  75% {
+    transform: scale(1.1) rotate(-5deg);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
