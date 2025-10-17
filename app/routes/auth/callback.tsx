@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import config from '~/config';
 
 const styles = {
   container: {
@@ -74,13 +75,58 @@ export default function AuthCallback() {
   console.log('AuthCallback: Component rendered');
 
   useEffect(() => {
-    console.log('AuthCallback: useEffect running');
-    
-    // Simple redirect without any complex logic
-    setTimeout(() => {
-      console.log('AuthCallback: Redirecting to home');
-      window.location.href = '/home';
-    }, 1000);
+    const validateAuth = async () => {
+      try {
+        console.log('AuthCallback: Validating authentication with cookie');
+        console.log('AuthCallback: Making request to', `${config.API_BASE_URL}/auth/me`);
+        console.log('AuthCallback: Current cookies', document.cookie);
+        
+        // Validate the authentication by calling /auth/me
+        const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
+          method: 'GET',
+          credentials: 'include', // This will send the HTTP-only cookie
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        console.log('AuthCallback: Response status', response.status, response.ok);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('AuthCallback: Response error', errorText);
+          throw new Error(`Authentication validation failed: ${response.status} ${response.statusText}`);
+        }
+
+        const userData = await response.json();
+        console.log('AuthCallback: User data received', { userData });
+        
+        // Handle both response structures: { user: {...} } and { success: true, data: { user: {...} } }
+        const user = userData?.data?.user || userData?.user;
+        
+        if (user) {
+          // Store user data in localStorage for immediate access
+          localStorage.setItem('user', JSON.stringify(user));
+          console.log('AuthCallback: User authenticated successfully');
+          
+          // Redirect to home
+          console.log('AuthCallback: Redirecting to home');
+          window.location.href = '/home';
+        } else {
+          throw new Error('Invalid user data received');
+        }
+      } catch (err) {
+        console.error('AuthCallback: Authentication validation failed:', err);
+        setError(err instanceof Error ? err.message : 'Authentication failed');
+
+        // Redirect to login on error
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      }
+    };
+
+    validateAuth();
   }, []);
   
   // Show a loading state while processing
