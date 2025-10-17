@@ -77,6 +77,12 @@ export default function AuthCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState('');
 
+  console.log('AuthCallback: Component rendered', {
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash
+  });
+
   useEffect(() => {
     const completeAuth = async () => {
       try {
