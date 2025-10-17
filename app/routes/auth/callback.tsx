@@ -90,7 +90,8 @@ export default function AuthCallback() {
           authSuccess,
           state,
           fullUrl: window.location.href,
-          searchParams: Object.fromEntries(url.searchParams.entries())
+          searchParams: Object.fromEntries(url.searchParams.entries()),
+          cookies: document.cookie
         });
 
         // Check if this is from Windows app via state parameter
@@ -115,6 +116,9 @@ export default function AuthCallback() {
         // We don't need the token parameter for web app authentication
         // We need to validate the authentication by calling /auth/me
         console.log('AuthCallback: Validating authentication with cookie');
+        console.log('AuthCallback: Making request to', `${config.API_BASE_URL}/auth/me`);
+        console.log('AuthCallback: Current cookies', document.cookie);
+        
         try {
           // The backend sets an HTTP-only cookie, so we just need to call /auth/me
           const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
@@ -125,8 +129,13 @@ export default function AuthCallback() {
             },
           });
 
+          console.log('AuthCallback: Response status', response.status, response.ok);
+          console.log('AuthCallback: Response headers', Object.fromEntries(response.headers.entries()));
+
           if (!response.ok) {
-            throw new Error('Authentication validation failed');
+            const errorText = await response.text();
+            console.error('AuthCallback: Response error', errorText);
+            throw new Error(`Authentication validation failed: ${response.status} ${response.statusText}`);
           }
 
           const userData = await response.json();
