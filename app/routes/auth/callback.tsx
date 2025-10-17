@@ -100,9 +100,18 @@ export default function AuthCallback() {
 
         const userData = await response.json();
         console.log('AuthCallback: User data received', { userData });
+        console.log('AuthCallback: User data structure', {
+          hasData: !!userData?.data,
+          hasUser: !!userData?.user,
+          dataUser: userData?.data?.user,
+          directUser: userData?.user,
+          keys: Object.keys(userData || {}),
+          fullStructure: JSON.stringify(userData, null, 2)
+        });
         
         // Handle both response structures: { user: {...} } and { success: true, data: { user: {...} } }
         const user = userData?.data?.user || userData?.user;
+        console.log('AuthCallback: Extracted user', { user });
         
         if (user) {
           // Store user data in localStorage for immediate access
@@ -113,6 +122,12 @@ export default function AuthCallback() {
           console.log('AuthCallback: Redirecting to home');
           window.location.href = '/home';
         } else {
+          console.error('AuthCallback: No user found in response', {
+            userData,
+            extractedUser: user,
+            dataUser: userData?.data?.user,
+            directUser: userData?.user
+          });
           throw new Error('Invalid user data received');
         }
       } catch (err) {
