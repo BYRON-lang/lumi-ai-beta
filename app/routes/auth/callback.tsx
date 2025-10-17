@@ -128,6 +128,19 @@ export default function AuthCallback() {
             dataUser: userData?.data?.user,
             directUser: userData?.user
           });
+          
+          // Try fallback: check if we have a token in the URL
+          const url = new URL(window.location.href);
+          const token = url.searchParams.get('token');
+          
+          if (token) {
+            console.log('AuthCallback: Trying fallback with URL token');
+            // For now, just redirect to home and let the home page handle auth
+            // This is a temporary workaround
+            window.location.href = '/home';
+            return;
+          }
+          
           throw new Error('Invalid user data received');
         }
       } catch (err) {
@@ -155,6 +168,11 @@ export default function AuthCallback() {
           <p style={styles.subtitle}>
             Please wait while we log you in securely...
           </p>
+          <div style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.5)', marginTop: '1rem', textAlign: 'left' }}>
+            <p>Debug Info:</p>
+            <p>URL: {window.location.href}</p>
+            <p>Cookies: {document.cookie || 'None'}</p>
+          </div>
         </div>
         <style>
           {`
