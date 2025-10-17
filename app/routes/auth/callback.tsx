@@ -73,45 +73,19 @@ const styles = {
 };
 
 export default function AuthCallback() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [error, setError] = useState('');
 
-  console.log('AuthCallback: Component rendered', {
-    pathname: window.location.pathname,
-    search: window.location.search,
-    hash: window.location.hash
-  });
+  console.log('AuthCallback: Component rendered');
 
   useEffect(() => {
-    const completeAuth = async () => {
-      try {
-        const url = new URL(window.location.href);
-        const token = url.searchParams.get('token');
-        const authSuccess = url.searchParams.get('auth');
-        const state = url.searchParams.get('state');
-
-        console.log('AuthCallback: Processing callback', { 
-          token: !!token, 
-          authSuccess,
-          state,
-          fullUrl: window.location.href,
-          searchParams: Object.fromEntries(url.searchParams.entries()),
-          cookies: document.cookie
-        });
-
-        // Simple test - just redirect to home for now
-        console.log('AuthCallback: Simple redirect to home');
-        navigate('/home', { replace: true });
-
-      } catch (err) {
-        console.error('AuthCallback: Authentication error:', err);
-        setError(err instanceof Error ? err.message : 'Authentication failed');
-      }
-    };
-
-    completeAuth();
-  }, [navigate]);
+    console.log('AuthCallback: useEffect running');
+    
+    // Simple redirect without any complex logic
+    setTimeout(() => {
+      console.log('AuthCallback: Redirecting to home');
+      window.location.href = '/home';
+    }, 1000);
+  }, []);
   
   // Show a loading state while processing
   if (!error) {
