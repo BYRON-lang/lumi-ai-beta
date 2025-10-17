@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '~/contexts/AuthContext';
-import { authService } from '~/services/auth';
+// import { useAuth } from '~/contexts/AuthContext';
+// import { authService } from '~/services/auth';
 import config from '~/config';
 
 const styles = {
@@ -100,97 +100,18 @@ export default function AuthCallback() {
           cookies: document.cookie
         });
 
-        // Check if this is from Windows app via state parameter
-        let isWindowsApp = false;
-        if (state) {
-          try {
-            const stateData = JSON.parse(decodeURIComponent(state));
-            isWindowsApp = stateData.platform === 'windows';
-          } catch (e) {
-            console.log('Could not parse state parameter:', e);
-          }
-        }
-
-        // If we're on the home page without a token, redirect to login
-        if (window.location.pathname === '/' && !token && !authSuccess) {
-          console.log('AuthCallback: On home page without auth params, redirecting to login');
-          navigate('/login', { replace: true });
-          return;
-        }
-
-        // For web app, the OAuth callback sets an HTTP-only cookie
-        // We don't need the token parameter for web app authentication
-        // We need to validate the authentication by calling /auth/me
-        console.log('AuthCallback: Validating authentication with cookie');
-        console.log('AuthCallback: Making request to', `${config.API_BASE_URL}/auth/me`);
-        console.log('AuthCallback: Current cookies', document.cookie);
-        
-        try {
-          // The backend sets an HTTP-only cookie, so we just need to call /auth/me
-          const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
-            method: 'GET',
-            credentials: 'include', // This will send the HTTP-only cookie
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          console.log('AuthCallback: Response status', response.status, response.ok);
-          console.log('AuthCallback: Response headers', Object.fromEntries(response.headers.entries()));
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('AuthCallback: Response error', errorText);
-            throw new Error(`Authentication validation failed: ${response.status} ${response.statusText}`);
-          }
-
-          const userData = await response.json();
-          console.log('AuthCallback: User data received', { userData });
-          
-          // Handle both response structures: { user: {...} } and { success: true, data: { user: {...} } }
-          const user = userData?.data?.user || userData?.user;
-          
-          if (user) {
-            // Store user data in localStorage for immediate access
-            localStorage.setItem('user', JSON.stringify(user));
-            console.log('AuthCallback: User authenticated successfully');
-          } else {
-            throw new Error('Invalid user data received');
-          }
-        } catch (error) {
-          console.error('AuthCallback: Authentication validation failed:', error);
-          throw new Error('Failed to authenticate user');
-        }
-
-        // Check if we need to redirect to Windows app
-        if (isWindowsApp) {
-          console.log('AuthCallback: Redirecting to Windows app with token');
-          window.location.href = `http://localhost:3948/auth-callback?token=${token}`;
-        } else {
-          // Clean up URL and redirect to auth-loading page
-          window.history.replaceState({}, document.title, '/auth-loading');
-          navigate('/auth-loading', { replace: true });
-        }
+        // Simple test - just redirect to home for now
+        console.log('AuthCallback: Simple redirect to home');
+        navigate('/home', { replace: true });
 
       } catch (err) {
         console.error('AuthCallback: Authentication error:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
-
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-
-        // Redirect to login with error
-        navigate('/', {
-          state: {
-            error: err instanceof Error ? err.message : 'Authentication failed',
-          },
-          replace: true
-        });
       }
     };
 
     completeAuth();
-  }, []); // Remove dependencies to prevent infinite loop
+  }, [navigate]);
   
   // Show a loading state while processing
   if (!error) {
