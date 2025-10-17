@@ -77,14 +77,57 @@ export default function AuthCallback() {
   useEffect(() => {
     const validateAuth = async () => {
       try {
-        console.log('AuthCallback: Validating authentication with cookie');
-        console.log('AuthCallback: Making request to', `${config.API_BASE_URL}/auth/me`);
-        console.log('AuthCallback: Current cookies', document.cookie);
+        const url = new URL(window.location.href);
+        const token = url.searchParams.get('token');
+        const authSuccess = url.searchParams.get('auth');
         
-        // Validate the authentication by calling /auth/me
+        console.log('AuthCallback: Processing callback', { 
+          hasToken: !!token, 
+          authSuccess,
+          cookies: document.cookie
+        });
+
+        // If we have a token in the URL, use it directly
+        if (token && authSuccess === 'success') {
+          console.log('AuthCallback: Using token from URL');
+          
+          try {
+            // Decode the JWT token to get user info
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            console.log('AuthCallback: Token payload', payload);
+            
+            if (payload.email) {
+              const user = {
+                id: payload.userId,
+                email: payload.email,
+                fullName: payload.email.split('@')[0], // Use email prefix as fallback
+                isVerified: payload.isVerified || true,
+                role: payload.role || 'user'
+              };
+              
+              console.log('AuthCallback: Created user from token', user);
+              
+              // Store user data in localStorage
+              localStorage.setItem('user', JSON.stringify(user));
+              console.log('AuthCallback: User stored in localStorage');
+              
+              // Redirect to home
+              console.log('AuthCallback: Redirecting to home');
+              window.location.href = '/home';
+              return;
+            }
+          } catch (tokenError) {
+            console.error('AuthCallback: Token decode error', tokenError);
+          }
+        }
+
+        // Fallback: try cookie-based authentication
+        console.log('AuthCallback: Trying cookie-based authentication');
+        console.log('AuthCallback: Making request to', `${config.API_BASE_URL}/auth/me`);
+        
         const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
           method: 'GET',
-          credentials: 'include', // This will send the HTTP-only cookie
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
@@ -92,65 +135,35 @@ export default function AuthCallback() {
 
         console.log('AuthCallback: Response status', response.status, response.ok);
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('AuthCallback: Response error', errorText);
-          throw new Error(`Authentication validation failed: ${response.status} ${response.statusText}`);
-        }
-
-        const userData = await response.json();
-        console.log('AuthCallback: User data received', { userData });
-        console.log('AuthCallback: User data structure', {
-          hasData: !!userData?.data,
-          hasUser: !!userData?.user,
-          dataUser: userData?.data?.user,
-          directUser: userData?.user,
-          keys: Object.keys(userData || {}),
-          fullStructure: JSON.stringify(userData, null, 2)
-        });
-        
-        // Handle both response structures: { user: {...} } and { success: true, data: { user: {...} } }
-        const user = userData?.data?.user || userData?.user;
-        console.log('AuthCallback: Extracted user', { user });
-        
-        if (user) {
-          // Store user data in localStorage for immediate access
-          localStorage.setItem('user', JSON.stringify(user));
-          console.log('AuthCallback: User authenticated successfully');
+        if (response.ok) {
+          const userData = await response.json();
+          console.log('AuthCallback: User data received', { userData });
           
-          // Redirect to home
-          console.log('AuthCallback: Redirecting to home');
-          window.location.href = '/home';
-        } else {
-          console.error('AuthCallback: No user found in response', {
-            userData,
-            extractedUser: user,
-            dataUser: userData?.data?.user,
-            directUser: userData?.user
-          });
+          const user = userData?.data?.user || userData?.user;
           
-          // Try fallback: check if we have a token in the URL
-          const url = new URL(window.location.href);
-          const token = url.searchParams.get('token');
-          
-          if (token) {
-            console.log('AuthCallback: Trying fallback with URL token');
-            // For now, just redirect to home and let the home page handle auth
-            // This is a temporary workaround
+          if (user) {
+            localStorage.setItem('user', JSON.stringify(user));
+            console.log('AuthCallback: User authenticated successfully');
             window.location.href = '/home';
             return;
           }
-          
-          throw new Error('Invalid user data received');
         }
-      } catch (err) {
-        console.error('AuthCallback: Authentication validation failed:', err);
-        setError(err instanceof Error ? err.message : 'Authentication failed');
 
-        // Redirect to login on error
+        // If both methods fail, show error
+        console.error('AuthCallback: All authentication methods failed');
+        setError('Authentication failed. Please try again.');
+        
         setTimeout(() => {
           window.location.href = '/';
-        }, 2000);
+        }, 3000);
+
+      } catch (err) {
+        console.error('AuthCallback: Authentication error:', err);
+        setError('Authentication failed. Please try again.');
+        
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 3000);
       }
     };
 
