@@ -1,8 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '~/contexts/AuthContext';
-import { authService } from '~/services/auth';
-import config from '~/config';
 
 const styles = {
   container: {
@@ -73,96 +69,19 @@ const styles = {
 };
 
 export default function AuthCallback() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const { loginWithGoogle } = useAuth();
   const [error, setError] = useState('');
 
-  console.log('AuthCallback: Component rendered', {
-    pathname: window.location.pathname,
-    search: window.location.search,
-    hash: window.location.hash
-  });
+  console.log('AuthCallback: Component rendered');
 
   useEffect(() => {
-    const completeAuth = async () => {
-      try {
-        const url = new URL(window.location.href);
-        const token = url.searchParams.get('token');
-        const authSuccess = url.searchParams.get('auth');
-        const state = url.searchParams.get('state');
-
-        console.log('AuthCallback: Processing callback', { 
-          token: !!token, 
-          authSuccess,
-          state,
-          fullUrl: window.location.href,
-          searchParams: Object.fromEntries(url.searchParams.entries()),
-          cookies: document.cookie
-        });
-
-        // Validate the authentication by calling /auth/me
-        console.log('AuthCallback: Validating authentication with cookie');
-        console.log('AuthCallback: Making request to', `${config.API_BASE_URL}/auth/me`);
-        
-        try {
-          const response = await fetch(`${config.API_BASE_URL}/auth/me`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          console.log('AuthCallback: Response status', response.status, response.ok);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('AuthCallback: Response error', errorText);
-            throw new Error(`Authentication validation failed: ${response.status} ${response.statusText}`);
-          }
-
-          const userData = await response.json();
-          console.log('AuthCallback: User data received', { userData });
-          
-          // Handle both response structures: { user: {...} } and { success: true, data: { user: {...} } }
-          const user = userData?.data?.user || userData?.user;
-          
-          if (user) {
-            // Store user data in localStorage for immediate access
-            localStorage.setItem('user', JSON.stringify(user));
-            console.log('AuthCallback: User authenticated successfully');
-            
-            // Use the AuthContext login method to properly set the user state
-            await loginWithGoogle(user);
-            
-            // Redirect to home
-            console.log('AuthCallback: Redirecting to home');
-            navigate('/home', { replace: true });
-        } else {
-            throw new Error('Invalid user data received');
-          }
-        } catch (error) {
-          console.error('AuthCallback: Authentication validation failed:', error);
-          throw new Error('Failed to authenticate user');
-        }
-
-      } catch (err) {
-        console.error('AuthCallback: Authentication error:', err);
-        setError(err instanceof Error ? err.message : 'Authentication failed');
-
-        // Redirect to login with error
-        navigate('/', {
-          state: {
-            error: err instanceof Error ? err.message : 'Authentication failed',
-          },
-          replace: true
-        });
-      }
-    };
-
-    completeAuth();
-  }, [navigate, loginWithGoogle]);
+    console.log('AuthCallback: useEffect running');
+    
+    // Simple redirect without any complex logic
+    setTimeout(() => {
+      console.log('AuthCallback: Redirecting to home');
+      window.location.href = '/home';
+    }, 1000);
+  }, []);
   
   // Show a loading state while processing
   if (!error) {
